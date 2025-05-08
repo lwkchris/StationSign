@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Recognition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+        }
+        video, canvas {
+            border: 2px solid #333;
+            margin-bottom: 10px;
+        }
+        .controls {
+            margin-bottom: 10px;
+        }
+        .predictions {
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+            text-align: center;
+        }
+        .prediction-text {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gesture Recognition</h1>
+    <div>
+        <img id="video-feed" src="/video_feed" alt="Video Feed" width="640" height="480">
+    </div>
+    <div class="controls">
+        <button id="start-button">Start</button>
+        <button id="stop-button">Stop</button>
+    </div>
+    <div class="predictions">
+        <h3>Top Prediction</h3>
+        <p class="prediction-text" id="top-prediction">Waiting for detection...</p>
+    </div>
+
+    <script>
+    const startButton = document.getElementById("start-button");
+    const stopButton = document.getElementById("stop-button");
+    const topPredictionElement = document.getElementById("top-prediction");
+
+    let resetTimer;
+
+    // Start video streaming
+    startButton.addEventListener("click", () => {
+        fetch("/start", { method: "POST" })
+            .then(response => response.json())
+            .then(data => console.log(data));
+    });
+
+    // Stop video streaming
+    stopButton.addEventListener("click", () => {
+        fetch("/stop", { method: "POST" })
+            .then(response => response.json())
+            .then(data => console.log(data));
+    });
+
+    // Function to reset the prediction text after timeout
+    const resetPrediction = () => {
+        topPredictionElement.textContent = "Waiting for detecting";
+    };
+
+    // Fetch and display the top prediction periodically
+    setInterval(() => {
+        fetch("/predictions")
+            .then(response => response.json())
+            .then(predictions => {
+                if (predictions.length > 0) {
+                    const topPrediction = predictions[0];
+
+                    if (topPrediction.length === 1) {
+                        // If only the gesture message is provided (e.g., "Waiting for detecting")
+                        topPredictionElement.textContent = topPrediction[0];
+                    } else {
+                        // Display gesture and confidence if both are present
+                        const [gesture, confidence] = topPrediction;
+                        topPredictionElement.textContent = `${gesture}: ${(confidence * 100).toFixed(2)}%`;
+                    }
+
+                    // Reset the timer
+                    clearTimeout(resetTimer);
+                    resetTimer = setTimeout(resetPrediction, 3000);
+                } else {
+                    // If no predictions, start/reset the timer to detect nothing
+                    clearTimeout(resetTimer);
+                    resetTimer = setTimeout(resetPrediction, 3000);
+                }
+            })
+            .catch(err => {
+                console.error("Error fetching predictions:", err);
+                topPredictionElement.textContent = "Error fetching predictions.";
+            });
+    }, 1000);
+</script>
+</body>
+</html>
